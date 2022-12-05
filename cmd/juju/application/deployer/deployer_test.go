@@ -118,16 +118,6 @@ func (s *deployerSuite) TestGetDeployerLocalCharmError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `no charm was found at "./bad.charm"`)
 }
 
-func (s *deployerSuite) TestGetDeployerCharmStoreCharm(c *gc.C) {
-	ch := charm.MustParseURL("cs:test-charm")
-	s.testGetDeployerRepositoryCharm(c, ch)
-}
-
-func (s *deployerSuite) TestGetDeployerCharmStoreCharmWithRevisionInURL(c *gc.C) {
-	ch := charm.MustParseURL("cs:test-charm-7")
-	s.testGetDeployerRepositoryCharm(c, ch)
-}
-
 func (s *deployerSuite) TestGetDeployerCharmHubCharm(c *gc.C) {
 	ch := charm.MustParseURL("ch:test-charm")
 	s.testGetDeployerRepositoryCharm(c, ch)
@@ -149,18 +139,6 @@ func (s *deployerSuite) testGetDeployerRepositoryCharm(c *gc.C, ch *charm.URL) {
 	deployer, err := factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy charm: %s", ch.String()))
-}
-
-func (s *deployerSuite) TestGetDeployerCharmStoreCharmWithRevision(c *gc.C) {
-	cfg := s.basicDeployerConfig()
-	cfg.Revision = 8
-	ch := charm.MustParseURL("cs:test-charm")
-	s.expectStat(ch.String(), errors.NotFoundf("file"))
-	cfg.CharmOrBundle = ch.String()
-
-	deployer, err := s.testGetDeployerRepositoryCharmWithRevision(c, ch, cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy charm: %s", ch.WithRevision(8).String()))
 }
 
 func (s *deployerSuite) TestGetDeployerCharmHubCharmWithRevision(c *gc.C) {
@@ -195,28 +173,6 @@ func (s *deployerSuite) testGetDeployerRepositoryCharmWithRevision(c *gc.C, ch *
 
 	factory := s.newDeployerFactory()
 	return factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
-}
-
-func (s *deployerSuite) TestCharmStoreSeriesOverride(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	s.expectFilesystem()
-	s.expectModelType()
-	s.expectResolveBundleURL(errors.NotValidf("not a bundle"), 1)
-
-	cfg := s.basicDeployerConfig()
-	cfg.Series = "bionic" // Override the default series (as if --series was specified)
-	ch := charm.MustParseURL("cs:test-charm")
-	s.expectStat(ch.String(), errors.NotFoundf("file"))
-	cfg.CharmOrBundle = ch.String()
-
-	factory := s.newDeployerFactory()
-	deployer, err := factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy charm: %s", ch.String()))
-
-	charmStoreDeployer := deployer.(*repositoryCharm)
-	c.Assert(charmStoreDeployer.id.Origin.Base.OS, gc.Equals, "ubuntu")
-	c.Assert(charmStoreDeployer.id.Origin.Base.Channel.String(), gc.Equals, "18.04/stable")
 }
 
 func (s *deployerSuite) TestGetDeployerLocalBundle(c *gc.C) {

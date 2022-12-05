@@ -55,7 +55,7 @@ func NewDeployerFactory(dep DeployerDependencies) DeployerFactory {
 }
 
 // GetDeployer returns the correct deployer to use based on the cfg provided.
-// A ModelConfigGetter and CharmStoreAdaptor needed to find the deployer.
+// A ModelConfigGetter needed to find the deployer.
 func (d *factory) GetDeployer(cfg DeployerConfig, getter ModelConfigGetter, resolver Resolver) (Deployer, error) {
 	d.setConfig(cfg)
 	maybeDeployers := []func() (Deployer, error){
@@ -493,33 +493,24 @@ func (d *factory) maybeReadRepositoryBundle(resolver Resolver) (Deployer, error)
 }
 
 func (d *factory) repositoryCharm() (Deployer, error) {
-	// Validate we have a charm store change.
 	userRequestedURL, err := resolveCharmURL(d.charmOrBundle, d.defaultCharmSchema)
+	if !charm.CharmHub.Matches(userRequestedURL.Schema) {
+		return nil, errors.NotValidf("invalid/unsupported repository in URL %v for %v", userRequestedURL, d.charmOrBundle)
+	}
+
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if charm.CharmHub.Matches(userRequestedURL.Schema) && d.channel.Empty() && d.revision != -1 {
+	if d.channel.Empty() && d.revision != -1 {
 		// Tell the user they need to specify a channel
 		return nil, errors.Errorf("specifying a revision requires a channel for future upgrades. Please use --channel")
 	}
 	// To deploy by revision, the revision number must be in the origin for a
-	// charmhub charm and in the url for a charmstore charm.
-	if charm.CharmHub.Matches(userRequestedURL.Schema) {
-		if userRequestedURL.Revision != -1 {
-			return nil, errors.Errorf("cannot specify revision in a charm or bundle name. Please use --revision.")
-		}
-		//if d.revision != -1 && d.channel.Empty() {
-		//	return nil, errors.Errorf("specifying a revision requires a channel for future upgrades. Please use --channel")
-		//}
-	} else if charm.CharmStore.Matches(userRequestedURL.Schema) {
-		if userRequestedURL.Revision != -1 && d.revision != -1 && userRequestedURL.Revision != d.revision {
-			return nil, errors.Errorf("two different revisions to deploy: specified %d and %d, please choose one.", userRequestedURL.Revision, d.revision)
-		}
-		if userRequestedURL.Revision == -1 && d.revision != -1 {
-			userRequestedURL = userRequestedURL.WithRevision(d.revision)
-		}
-		logger.Warningf("Charm store charms, those with cs: before the charm name, will not be supported in juju 3.1.\n\tMigration of this model to a juju 3.1 controller will be prohibited.")
+	// charmhub charm.
+	if userRequestedURL.Revision != -1 {
+		return nil, errors.Errorf("cannot specify revision in a charm or bundle name. Please use --revision.")
 	}
+
 	platform, err := utils.DeducePlatform(d.constraints, d.series, d.modelConstraints)
 	if err != nil {
 		return nil, errors.Trace(err)
