@@ -17,7 +17,7 @@ import (
 type CharmAdder interface {
 	AddLocalCharm(*charm.URL, charm.Charm, bool) (*charm.URL, error) // not used in utils
 	AddCharm(*charm.URL, commoncharm.Origin, bool) (commoncharm.Origin, error)
-	AddCharmWithAuthorization(*charm.URL, commoncharm.Origin, *macaroon.Macaroon, bool) (commoncharm.Origin, error)
+	AddCharmWithAuthorization(*charm.URL, commoncharm.Origin, bool) (commoncharm.Origin, error)
 	CheckCharmPlacement(string, *charm.URL) error
 }
 

@@ -20,7 +20,6 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/httprequest.v1"
-	"gopkg.in/macaroon.v2"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/charms"
@@ -223,9 +222,8 @@ func (s *charmsMockSuite) TestAddCharmWithAuthorization(c *gc.C) {
 		Base:         series.MakeDefaultBase("ubuntu", "18.04"),
 	}
 	facadeArgs := params.AddCharmWithAuth{
-		URL:                curl.String(),
-		CharmStoreMacaroon: &macaroon.Macaroon{},
-		Origin:             origin.ParamsCharmOrigin(),
+		URL:    curl.String(),
+		Origin: origin.ParamsCharmOrigin(),
 	}
 	result := new(params.CharmOriginResult)
 	actualResult := params.CharmOriginResult{
@@ -236,7 +234,7 @@ func (s *charmsMockSuite) TestAddCharmWithAuthorization(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall("AddCharmWithAuthorization", facadeArgs, result).SetArg(2, actualResult).Return(nil)
 
 	client := charms.NewClientWithFacade(mockFacadeCaller)
-	got, err := client.AddCharmWithAuthorization(curl, origin, &macaroon.Macaroon{}, false)
+	got, err := client.AddCharmWithAuthorization(curl, origin, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got, gc.DeepEquals, origin)
 }

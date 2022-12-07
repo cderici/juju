@@ -14,9 +14,7 @@ import (
 	"github.com/juju/charmrepo/v7/csclient"
 	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/errors"
-	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/charmstore"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/version"
 )
@@ -33,7 +31,7 @@ type CharmStoreClient interface {
 type CharmStoreRepository struct {
 	logger        Logger
 	charmstoreURL string
-	clientFactory func(storeURL string, channel csparams.Channel, macaroons macaroon.Slice) (CharmStoreClient, error)
+	clientFactory func(storeURL string, channel csparams.Channel) (CharmStoreClient, error)
 }
 
 // csMetadataResponse encodes a metadata lookup response from the charmstore API.
@@ -58,9 +56,9 @@ func NewCharmStoreRepository(logger Logger, charmstoreURL string) *CharmStoreRep
 // ResolveWithPreferredChannel queries the store and resolves the provided
 // charm URL/origin tuple to a charm URL that corresponds to a downloadable
 // charm/bundle from the store.
-func (c *CharmStoreRepository) ResolveWithPreferredChannel(charmURL *charm.URL, requestedOrigin corecharm.Origin, macaroons macaroon.Slice) (*charm.URL, corecharm.Origin, []string, error) {
+func (c *CharmStoreRepository) ResolveWithPreferredChannel(charmURL *charm.URL, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []string, error) {
 	channel := csparams.Channel(requestedOrigin.Channel.Risk)
-	client, err := c.clientFactory(c.charmstoreURL, channel, macaroons)
+	client, err := c.clientFactory(c.charmstoreURL, channel)
 	if err != nil {
 		return nil, corecharm.Origin{}, nil, errors.Trace(err)
 	}
@@ -93,9 +91,9 @@ func (c *CharmStoreRepository) doResolveWithClient(client CharmStoreClient, char
 
 // DownloadCharm retrieves specified charm from the store and saves its
 // contents to the specified path.
-func (c *CharmStoreRepository) DownloadCharm(charmURL *charm.URL, requestedOrigin corecharm.Origin, macaroons macaroon.Slice, archivePath string) (corecharm.CharmArchive, corecharm.Origin, error) {
+func (c *CharmStoreRepository) DownloadCharm(charmURL *charm.URL, requestedOrigin corecharm.Origin, archivePath string) (corecharm.CharmArchive, corecharm.Origin, error) {
 	channel := csparams.Channel(requestedOrigin.Channel.Risk)
-	client, err := c.clientFactory(c.charmstoreURL, channel, macaroons)
+	client, err := c.clientFactory(c.charmstoreURL, channel)
 	if err != nil {
 		return nil, corecharm.Origin{}, errors.Trace(err)
 	}
@@ -117,9 +115,9 @@ func (c *CharmStoreRepository) DownloadCharm(charmURL *charm.URL, requestedOrigi
 
 // GetDownloadURL resolves the specified charm/bundle URL into a url.URL which
 // can be used to download the blob associated with the charm/bundle.
-func (c *CharmStoreRepository) GetDownloadURL(charmURL *charm.URL, requestedOrigin corecharm.Origin, macaroons macaroon.Slice) (*url.URL, corecharm.Origin, error) {
+func (c *CharmStoreRepository) GetDownloadURL(charmURL *charm.URL, requestedOrigin corecharm.Origin) (*url.URL, corecharm.Origin, error) {
 	channel := csparams.Channel(requestedOrigin.Channel.Risk)
-	client, err := c.clientFactory(c.charmstoreURL, channel, macaroons)
+	client, err := c.clientFactory(c.charmstoreURL, channel)
 	if err != nil {
 		return nil, corecharm.Origin{}, errors.Trace(err)
 	}
@@ -142,7 +140,7 @@ func (c *CharmStoreRepository) GetDownloadURL(charmURL *charm.URL, requestedOrig
 
 // ListResources returns the resources for a given charm and origin. This is
 // a no-op for charmstore.
-func (c *CharmStoreRepository) ListResources(charmURL *charm.URL, _ corecharm.Origin, _ macaroon.Slice) ([]charmresource.Resource, error) {
+func (c *CharmStoreRepository) ListResources(charmURL *charm.URL, _ corecharm.Origin) ([]charmresource.Resource, error) {
 	c.logger.Tracef("ListResources %q", charmURL)
 	return nil, nil
 }
@@ -158,7 +156,7 @@ func (c *CharmStoreRepository) GetEssentialMetadata(reqs ...corecharm.MetadataRe
 		// was originally implemented we unfortunately need to create a
 		// new client per request.
 		channel := csparams.Channel(req.Origin.Channel.Risk)
-		client, err := c.clientFactory(c.charmstoreURL, channel, req.Macaroons)
+		client, err := c.clientFactory(c.charmstoreURL, channel)
 		if err != nil {
 			return nil, errors.Annotatef(err, "obain charmstore client for %q", req.CharmURL)
 		}
@@ -176,7 +174,7 @@ func (c *CharmStoreRepository) GetEssentialMetadata(reqs ...corecharm.MetadataRe
 	return res, nil
 }
 
-func makeCharmStoreClient(charmstoreURL string, defaultChannel csparams.Channel, macaroons macaroon.Slice) (CharmStoreClient, error) {
+func makeCharmStoreClient(charmstoreURL string, defaultChannel csparams.Channel) (CharmStoreClient, error) {
 	apiURL, err := url.Parse(charmstoreURL)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -186,12 +184,6 @@ func makeCharmStoreClient(charmstoreURL string, defaultChannel csparams.Channel,
 		URL:            apiURL.String(),
 		BakeryClient:   httpbakery.NewClient(),
 		UserAgentValue: version.UserAgentVersion,
-	}
-
-	if len(macaroons) != 0 {
-		if err := httpbakery.SetCookie(csParams.BakeryClient.Jar, apiURL, charmstore.MacaroonNamespace, macaroons); err != nil {
-			return nil, errors.Trace(err)
-		}
 	}
 
 	csClient := csclient.New(csParams)

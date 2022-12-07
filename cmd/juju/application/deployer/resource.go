@@ -20,7 +20,6 @@ import (
 type DeployResourcesFunc func(
 	applicationID string,
 	chID resources.CharmID,
-	csMac *macaroon.Macaroon,
 	filesAndRevisions map[string]string,
 	resources map[string]charmresource.Meta,
 	conn base.APICallCloser,
@@ -33,7 +32,6 @@ type DeployResourcesFunc func(
 func DeployResources(
 	applicationID string,
 	chID resources.CharmID,
-	csMac *macaroon.Macaroon,
 	filesAndRevisions map[string]string,
 	res map[string]charmresource.Meta,
 	conn base.APICallCloser,
@@ -62,14 +60,13 @@ func DeployResources(
 	}
 
 	ids, err = resourcecmd.DeployResources(resourcecmd.DeployResourcesArgs{
-		ApplicationID:      applicationID,
-		CharmID:            chID,
-		CharmStoreMacaroon: csMac,
-		ResourceValues:     filenames,
-		Revisions:          revisions,
-		ResourcesMeta:      res,
-		Client:             &deployClient{apiClient},
-		Filesystem:         filesystem,
+		ApplicationID:  applicationID,
+		CharmID:        chID,
+		ResourceValues: filenames,
+		Revisions:      revisions,
+		ResourcesMeta:  res,
+		Client:         &deployClient{apiClient},
+		Filesystem:     filesystem,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

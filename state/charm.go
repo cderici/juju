@@ -252,7 +252,6 @@ type CharmInfo struct {
 	ID          *charm.URL
 	StoragePath string
 	SHA256      string
-	Macaroon    macaroon.Slice
 	Version     string
 }
 
@@ -289,13 +288,6 @@ func insertCharmOps(mb modelBackend, info CharmInfo) ([]txn.Op, error) {
 		return nil, errors.Trace(err)
 	}
 
-	if info.Macaroon != nil {
-		mac, err := info.Macaroon.MarshalBinary()
-		if err != nil {
-			return nil, errors.Annotate(err, "can't convert macaroon to binary for storage")
-		}
-		doc.Macaroon = mac
-	}
 	return insertAnyCharmOps(mb, &doc)
 }
 
@@ -402,14 +394,6 @@ func updateCharmOps(mb modelBackend, info CharmInfo, assert bson.D) ([]txn.Op, e
 
 	if err := checkCharmDataIsStorable(data); err != nil {
 		return nil, errors.Trace(err)
-	}
-
-	if len(info.Macaroon) > 0 {
-		mac, err := info.Macaroon.MarshalBinary()
-		if err != nil {
-			return nil, errors.Annotate(err, "can't convert macaroon to binary for storage")
-		}
-		data = append(data, bson.DocElem{"macaroon", mac})
 	}
 
 	op.Update = bson.D{{"$set", data}}
@@ -777,7 +761,6 @@ func (c *Charm) UpdateMacaroon(m macaroon.Slice) error {
 		ID:          c.URL(),
 		StoragePath: c.StoragePath(),
 		SHA256:      c.BundleSha256(),
-		Macaroon:    m,
 	}
 	ops, err := updateCharmOps(c.st, info, nil)
 	if err != nil {

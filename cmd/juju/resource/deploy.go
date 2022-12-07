@@ -40,10 +40,6 @@ type DeployResourcesArgs struct {
 	// CharmID identifies the application's charm.
 	CharmID apiresources.CharmID
 
-	// CharmStoreMacaroon is the macaroon to use for the charm when
-	// interacting with the charm store.
-	CharmStoreMacaroon *macaroon.Macaroon
-
 	// ResourceValues is the set of resources for which a value
 	// was provided at the command-line.
 	ResourceValues map[string]string
@@ -70,7 +66,6 @@ func DeployResources(args DeployResourcesArgs) (ids map[string]string, err error
 	d := deployUploader{
 		applicationID: args.ApplicationID,
 		chID:          args.CharmID,
-		csMac:         args.CharmStoreMacaroon,
 		client:        args.Client,
 		resources:     args.ResourcesMeta,
 		filesystem:    args.Filesystem,

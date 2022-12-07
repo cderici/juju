@@ -176,12 +176,11 @@ func (c *Client) AddCharm(curl *charm.URL, origin apicharm.Origin, force bool) (
 // an error satisfying params.IsCodeUnauthorized will be returned.
 // Force is used to overload any validation errors that could occur during
 // a deploy
-func (c *Client) AddCharmWithAuthorization(curl *charm.URL, origin apicharm.Origin, csMac *macaroon.Macaroon, force bool) (apicharm.Origin, error) {
+func (c *Client) AddCharmWithAuthorization(curl *charm.URL, origin apicharm.Origin, force bool) (apicharm.Origin, error) {
 	args := params.AddCharmWithAuth{
-		URL:                curl.String(),
-		Origin:             origin.ParamsCharmOrigin(),
-		CharmStoreMacaroon: csMac,
-		Force:              force,
+		URL:    curl.String(),
+		Origin: origin.ParamsCharmOrigin(),
+		Force:  force,
 	}
 	var result params.CharmOriginResult
 	if err := c.facade.FacadeCall("AddCharmWithAuthorization", args, &result); err != nil {
