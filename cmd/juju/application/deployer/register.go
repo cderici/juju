@@ -82,9 +82,8 @@ func (r *RegisterMeteredCharm) RunPre(api DeployStepAPI, bakeryClient *httpbaker
 			return nil
 		}
 
-		// if the plan was not specified and this is a charmstore charm we
-		// check if the charm has a default plan
-		if r.Plan == "" && deployInfo.CharmID.URL.Schema == "cs" {
+		// if the plan was not specified we check if the charm has a default plan
+		if r.Plan == "" {
 			r.Plan, err = r.getDefaultPlan(bakeryClient, deployInfo.CharmID.URL.String())
 			if err != nil {
 				if isNoDefaultPlanError(err) {

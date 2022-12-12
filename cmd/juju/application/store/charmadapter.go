@@ -8,12 +8,10 @@ import (
 	"net/url"
 
 	"github.com/juju/charm/v9"
-	csparams "github.com/juju/charmrepo/v7/csclient/params"
 	"github.com/juju/errors"
 
 	apicharm "github.com/juju/juju/api/client/charms"
 	commoncharm "github.com/juju/juju/api/common/charm"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
 )
@@ -39,19 +37,16 @@ type BundleFactory interface {
 type BundleRepoFunc = func(*charm.URL) (BundleFactory, error)
 
 // CharmAdaptor handles prep work for deploying charms: resolving charms
-// and bundles and getting bundle contents.  This is done via the charmstore
-// or the charms API depending on the API's version.
+// and bundles and getting bundle contents.  This is done via the charms API depending on the API's version.
 type CharmAdaptor struct {
-	charmsAPI          CharmsAPI
-	charmStoreRepoFunc CharmStoreRepoFunc
-	bundleRepoFn       BundleRepoFunc
+	charmsAPI    CharmsAPI
+	bundleRepoFn BundleRepoFunc
 }
 
 // NewCharmAdaptor returns a CharmAdaptor.
 func NewCharmAdaptor(charmsAPI CharmsAPI, charmStoreRepoFunc CharmStoreRepoFunc, downloadBundleClientFunc DownloadBundleClientFunc) *CharmAdaptor {
 	return &CharmAdaptor{
-		charmsAPI:          charmsAPI,
-		charmStoreRepoFunc: charmStoreRepoFunc,
+		charmsAPI: charmsAPI,
 
 		bundleRepoFn: func(url *charm.URL) (BundleFactory, error) {
 			if charm.CharmHub.Matches(url.Schema) {
@@ -67,8 +62,8 @@ func NewCharmAdaptor(charmsAPI CharmsAPI, charmStoreRepoFunc CharmStoreRepoFunc,
 	}
 }
 
-// ResolveCharm tries to interpret url as a CharmStore or CharmHub charm.
-// If it turns out to be one of those charm types, the resolved URL, origin
+// ResolveCharm tries to interpret url as a CharmHub charm.
+// If it turns out to be such a charm, then the resolved URL, origin
 // and a slice of supported series are returned.
 // Resolving a CharmHub charm is only supported if the controller has a
 // Charms API version of 3 or greater.
@@ -89,37 +84,10 @@ func (c *CharmAdaptor) ResolveCharm(url *charm.URL, preferredOrigin commoncharm.
 		err = resolved[0].Error
 	}
 
-	// In order to maintain backwards compatibility with the charmstore, we need
-	// to correctly handle charmhub vs charmstore failures.
-	// The following attempts to correctly fallback if the url is a charmhub
-	// charm, otherwise fallback to how the old client worked.
-	if charm.CharmHub.Matches(url.Schema) {
-		if errors.IsNotSupported(err) {
-			return nil, commoncharm.Origin{}, nil, errors.NewNotSupported(nil, "charmhub charms are not supported by the current controller; if you wish to use charmhub consider upgrading your controller to 2.9+.")
-		}
-		return nil, commoncharm.Origin{}, nil, errors.Trace(err)
+	if err == errors.NotSupported {
+		return nil, commoncharm.Origin{}, nil, errors.NewNotSupported(nil, "charmhub charms are not supported by the current controller; if you wish to use charmhub consider upgrading your controller to 2.9+.")
 	}
-	return c.resolveCharmFallback(url, preferredOrigin)
-}
-
-func (c *CharmAdaptor) resolveCharmFallback(url *charm.URL, preferredOrigin commoncharm.Origin) (*charm.URL, commoncharm.Origin, []string, error) {
-	charmRepo, err := c.charmStoreRepoFunc()
-	if err != nil {
-		return nil, commoncharm.Origin{}, nil, errors.Trace(err)
-	}
-
-	resultURL, channel, supportedSeries, err := charmRepo.ResolveWithPreferredChannel(url, csparams.Channel(preferredOrigin.Risk))
-	if err != nil {
-		// Ideally the would be restored before now, however the
-		// callee is in the core package, let's not add dependecies there.
-		return nil, commoncharm.Origin{}, nil, errors.Trace(apiservererrors.RestoreError(err))
-	}
-	origin := preferredOrigin
-	origin.Risk = string(channel)
-	if resultURL.Series != "" && len(supportedSeries) == 0 {
-		supportedSeries = []string{resultURL.Series}
-	}
-	return resultURL, origin, supportedSeries, nil
+	return nil, commoncharm.Origin{}, nil, errors.Trace(err)
 }
 
 // ResolveBundleURL tries to interpret maybeBundle as a CharmStore
